@@ -17,10 +17,10 @@ Technically, this could be implemented some day as extension for existing modeli
 ## What is a HUDA-ODE?
 A HUDA-ODE is a common model interface of five functions (four non-trivial), that is capable of describing a width variety of different simulation and machine learning models, technically mixed **H**ybrid, **U**niversal, **D**iscrete, **A**lgebraic and (**O**rdinary) **D**ifferential **E**quations.
 The system of equations is defined as follows:
-$$
+```math
 \begin{bmatrix}
-	\dvec{x}_c(t) \\ 
-	\dvec{x}_d(t) \\ 
+	\dot{\vec{x}}_c(t) \\ 
+	\dot{\vec{x}}_d(t) \\ 
 	\vec{y}(t) \\
 	\vec{z}(t) \\
 	\vec{x}(t^+)
@@ -32,7 +32,7 @@ $$
 	\vec{c}(\vec{x}_c(t), \vec{x}_d(t), \vec{u}(t), \vec{p}, t) \\
 	\vec{a}(\vec{x}_c(t^-), \vec{x}_d(t^-), \vec{u}(t^-), \vec{p}, t^-)
 \end{bmatrix}
-$$
+```
 
 ## Limitations
 For now, the current implementation is restricted to ODEs, so PDEs or DAEs are not supported out of the box.
