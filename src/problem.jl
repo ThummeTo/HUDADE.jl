@@ -17,11 +17,13 @@ mutable struct HUDAODEProblem
     problem::ODEProblem 
     callbacks::Vector{Any} # [ToDo] correct vector type!
     currentSolution::HUDADESolution
+    p_solve # ToDo: Maybe this is the same as problem.p ?
     
-    function HUDAODEProblem(fct::HUDAODEFunction, x0_c, x0_d, tspan; p=Float64[], interp_points::Int=10, tType=Float64)
+    function HUDAODEProblem(fct::HUDAODEFunction, x0_c::AbstractVector{T}, x0_d, tspan::Tuple{T, T}; p=T[], interp_points::Int=10) where {T}
 
         inst = new()
         inst.fct = fct
+        inst.p_solve = p # initial value
 
         #fct.input.x[1][:] = x0_c
         #fct.input.x[2][:] = x0_d
@@ -39,13 +41,15 @@ mutable struct HUDAODEProblem
             fct.f(ẋ_c, x_c, x_d, u, p, t)
             
             # todo: make above as view!
-            ẋ[1:length(ẋ_c)] = ẋ_c
+            len_dx = length(ẋ_c)
+            ẋ[1:len_dx] = ẋ_c
+            ẋ[len_dx+1:end] .= T(0.0)
 
             nothing
         end
 
         # todo: add inputs!
-        x0 = fct.x_pack(x0_c, x0_d, Float64[], Float64[])
+        x0 = fct.x_pack(x0_c, x0_d, similar(x0_c, 0), similar(x0_d,0))
 
         problem = ODEProblem(f, x0, tspan, p)
 
@@ -55,63 +59,87 @@ mutable struct HUDAODEProblem
 
             function a_t(integrator)
 
+                p = inst.p_solve
+
                 # ToDo: Is this correct? Pulling from the integrator?
-                t = integrator.t
+                t_left = integrator.t
+                t_right = t_left # is this correct?
                 x_c_left, x_d_left, u_c_left, u_d_left = fct.x_unpack(integrator.u)  
                 
                 # ToDo: Remove copy here!
-                x_c_right_local = copy(x_c_left)
-                x_d_right_local = copy(x_d_left)
+                x_c_right_local = deepcopy(x_c_left)
+                x_d_right_local = deepcopy(x_d_left)
     
                 # todo: correct inputs 
                 u = u_c_left
     
-                fct.a_t(x_c_right_local, x_d_right_local, x_c_left, x_d_left, u, p, t)
+                fct.a_t(x_c_right_local, x_d_right_local, x_c_left, x_d_left, u, p, t_left, true)
     
+                #@info "true -> $((x_c_right_local, x_d_right_local))"
+
                 needoptim = true
                 if needoptim 
                     # find global x_c_right for local x_c_right
 
                     # allocate buffer
-                    x_c_local_buffer = copy(x_c_right_local)
-                    x_d_local_buffer = copy(x_d_right_local)
+                    x_c_local_buffer = deepcopy(x_c_right_local)
+                    x_d_local_buffer = deepcopy(x_d_right_local)
 
                     function res(_x_right)
                         _x_c_right, _x_d_right = fct.x_unpack(_x_right) # [ToDo] unpack is only valid w.o. inputs!  
-                        fct.a_t(x_c_local_buffer, x_d_local_buffer, _x_c_right, _x_d_right, u, p, t) # -1 = ignore event handling
+                        
+                        x_c_local_buffer[:] = _x_c_right
+                        x_d_local_buffer[:] = _x_d_right
+
+                        fct.a_t(x_c_local_buffer, x_d_local_buffer, _x_c_right, _x_d_right, u, p, t_right, false) # false = ignore event handling
                         return sum(abs.(x_c_local_buffer - x_c_right_local)) + sum(abs.(x_d_local_buffer - x_d_right_local))
                     end
 
-                    result = Optim.optimize(res, [x_c_right_local..., x_d_right_local...], Optim.BFGS())
+                    #@info "Before: $(typeof([x_c_left..., x_d_left...]))"
 
-                    if result.minimum > 1e-6
-                        @error "Found no state at t=$(t), residual is $(result.minimum)"
+                    # todo: why not [x_c_left..., x_d_left...]
+                    result = Optim.optimize(res, [x_c_right_local..., x_d_right_local...]; method=Optim.BFGS()) #, allow_f_increases=true)
+
+                    if result.minimum > 1e-6 # ToDo: This is too big.
+                        @error "Found no state at t=$(t_right).\nFor local state: $([x_c_right_local..., x_d_right_local...])\nResidual is $(result.minimum).\nBest state is: $(result.minimizer)."
                     end
 
                     x_c_right, x_d_right = fct.x_unpack(result.minimizer)
         
                     integrator.u[:] = fct.x_pack(x_c_right, x_d_right, u, u)
+
+                    #@info "After: $(typeof(x_c_right))"
                 end
 
-                add_event!(inst.currentSolution, t, 0)
+                #@info "$((x_c_right, x_d_right)) $(result.minimum)"
+
+                add_event!(inst.currentSolution, t_right, 0)
     
                 nothing
             end
 
             function c_t(integrator)
+
+                p = inst.p_solve
+
                 x_c, x_d, u_c, u_d = fct.x_unpack(integrator.u)
                 t = integrator.t
 
                 u = u_c # todo!
 
-                t_next = [t] # todo!
-                fct.c_t(t_next, x_d, u, p, t)
-                return t_next[1]
+                #t_next = [similar(x_c)] # todo!
+                #fct.c_t(t_next, x_d, u, p, t)
+                #return t_next[1]
+
+                # [Todo] check if type inconsistency and only FD.value if necessary!
+                t_next = fct.c_t(x_d, u, p, t)
+                @assert !isdual(t_next) "The function c_t returned a FD.Dual, which is not supported.\nThis may be because you defined your time event depending on the state."
+                return t_next # undual(t_next)
             end
 
             timeEventCb = IterativeCallback(c_t,
                 a_t, 
-                tType; 
+                T; 
                 initial_affect=false, 
                 save_positions=(false, false))
             push!(callbacks, timeEventCb)
@@ -121,6 +149,8 @@ mutable struct HUDAODEProblem
 
             function a_x(integrator, idx)
 
+                p = inst.p_solve
+
                 #@info "$(typeof(integrator.t))"
 
                 # ToDo: Is this correct? Pulling from the integrator?
@@ -128,8 +158,8 @@ mutable struct HUDAODEProblem
                 x_c_left, x_d_left, u_c_left, u_d_left = fct.x_unpack(integrator.u)  
                 
                 # ToDo: Remove copy here!
-                x_c_right_local = copy(x_c_left)
-                x_d_right_local = copy(x_d_left)
+                x_c_right_local = deepcopy(x_c_left)
+                x_d_right_local = deepcopy(x_d_left)
     
                 # todo: correct inputs 
                 u = u_c_left
@@ -141,19 +171,20 @@ mutable struct HUDAODEProblem
                     # find global x_c_right for local x_c_right
 
                     # allocate buffer
-                    x_c_local_buffer = copy(x_c_right_local)
-                    x_d_local_buffer = copy(x_d_right_local)
-
+                    x_c_local_buffer = deepcopy(x_c_right_local)
+                    x_d_local_buffer = deepcopy(x_d_right_local)
+                    
                     function res(_x_right)
                         _x_c_right, _x_d_right = fct.x_unpack(_x_right) # [ToDo] unpack is only valid w.o. inputs!  
                         fct.a_x(x_c_local_buffer, x_d_local_buffer, _x_c_right, _x_d_right, u, p, t, -1) # -1 = ignore event handling
                         return sum(abs.(x_c_local_buffer - x_c_right_local)) + sum(abs.(x_d_local_buffer - x_d_right_local))
                     end
 
+                    # why not: [x_c_left..., x_d_left...]
                     result = Optim.optimize(res, [x_c_right_local..., x_d_right_local...], Optim.BFGS())
 
                     if result.minimum > 1e-6
-                        @error "Found no state at t=$(t), residual is $(result.minimum)"
+                        @error "Found no state at t=$(t).\nFor local state: $([x_c_right_local..., x_d_right_local...])\nResidual is $(result.minimum).\nBest state is: $(result.minimizer)."
                     end
 
                     x_c_right, x_d_right = fct.x_unpack(result.minimizer)
@@ -182,6 +213,8 @@ mutable struct HUDAODEProblem
             end
 
             function c_x(z, x, t, integrator)
+
+                p = inst.p_solve
                 x_c, x_d, u_c, u_d = fct.x_unpack(x)
 
                 # if z doesnt allow for sensitivities
@@ -213,6 +246,30 @@ mutable struct HUDAODEProblem
 end
 export HUDAODEProblem 
 
+function Base.hasproperty(obj::HUDAODEProblem, var::Symbol)
+    if var ∈ (:p,)
+        return true 
+    else
+        return Base.hasfield(obj, var)
+    end
+end
+
+function Base.getproperty(obj::HUDAODEProblem, var::Symbol)
+    if var ∈ (:p,)
+        return Base.getfield(obj.problem, var) 
+    else
+        return Base.getfield(obj, var)
+    end
+end
+
+function Base.setproperty!(obj::HUDAODEProblem, var::Symbol, val)
+    if var ∈ (:p,)
+        return Base.setfield!(obj.problem, var, val) 
+    else
+        return Base.setfield!(obj, var, val)
+    end
+end
+
 function initialize(prob::HUDAODEProblem, tspan)
 
     x_c = nothing
@@ -239,16 +296,21 @@ function cleanup(prob::HUDAODEProblem)
     return nothing
 end
 
-function SciMLBase.solve(prob::HUDAODEProblem, args...; tspan=prob.problem.tspan, p=prob.problem.p, callbacks::Bool=true, kwargs...)
+function SciMLBase.solve(prob::HUDAODEProblem, args...; tspan=prob.problem.tspan, p=prob.problem.p, callbacks::Bool=true, x0=nothing, u0=nothing, kwargs...)
 
-    x_c0, x_d0 = initialize(prob, tspan)
-    
-    x0 = prob.fct.x_pack(x_c0, x_d0, Float64[], Float64[]) # todo: inputs!
+    @assert isnothing(u0) "u0 is not defined for HUDADEs (could be easily mixed up with the input u), please use x0 for the inital state instead."
 
-    if length(x0) == 0
-        x0 = [0.0]  
+    if isnothing(x0)
+            x_c0, x_d0 = initialize(prob, tspan)
+        
+        x0 = prob.fct.x_pack(x_c0, x_d0, similar(x_c0,0), similar(x_d0,0)) # todo: inputs!
+
+        if length(x0) == 0
+            x0 = [0.0f0] # zero state system 
+        end
     end
 
+    prob.p_solve = p # to get `p` into the callbacks!
     prob.currentSolution = HUDADESolution()
 
     callback = nothing 

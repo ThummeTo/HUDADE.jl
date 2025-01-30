@@ -31,7 +31,7 @@ function HUDADE.sense_setindex!(A::Vector{Float64}, x::ForwardDiff.Dual, i::Int6
 end
 
 # specials 
-HUDADE.add_event!(solution::HUDADESolution, t::ForwardDiff.Dual, idx) = HUDADE.add_event!(solution, ForwardDiff.value(t), idx)
+HUDADE.add_event!(solution::HUDADESolution, t::ForwardDiff.Dual, idx::UInt64) = HUDADE.add_event!(solution, ForwardDiff.value(t), idx)
 
 end # ForwardDiffExt
 

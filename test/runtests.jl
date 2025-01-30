@@ -18,9 +18,9 @@ x_c0 = [1.0, 0.0]
 x_d0 = [0.0, -1.0, 1.0]
 tspan = (t0, 5.0)
 
-fct = HUDADE.BouncingBall2D()
+problem = HUDADE.BouncingBall2D()
 p0 = fct.p
-problem = HUDAODEProblem(fct, x_c0, x_d0, tspan; p=p0)
+#problem = HUDAODEProblem(fct, x_c0, x_d0, tspan; p=p0)
 solution = solve(problem)
 ts = tspan[1]:0.01:tspan[2]
 plot(ts, collect(solution(t)[1] for t in ts))

@@ -50,6 +50,9 @@ function HUDADE.FMUModel(fmu::FMU)
     end
 
     fct.c_x = function(z, x_c, x_d, u, p)
+        #c = nothing # [todo]
+        #condition!(c::FMUInstance, ec, x::AbstractArray{<:Real}, t::Real, inputFunction::Union{Nothing,FMUInputFunction},)
+
         fmu(; x=x_c, 
             #u=u, # [ToDo: inputs!]
             #u_refs=u_refs,
@@ -67,7 +70,8 @@ function HUDADE.FMUModel(fmu::FMU)
     end
 
     fct.c_t = function(t_next, x_d, u, p, t)
-        # [ToDo]
+        #c = nothing # [todo]
+        #time_choice(c::FMU2Component, integrator, tStart, tStop)
         nothing
     end
 

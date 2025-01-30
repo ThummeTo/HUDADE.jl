@@ -3,11 +3,11 @@
 # Licensed under the MIT license. See LICENSE file in the project root for details.
 #
 
-struct HUDADEEvent
-    t::Float64
+struct HUDADEEvent{T}
+    t::T
     idx::UInt32
     
-    function HUDADEEvent(t::Float64, idx::UInt32)
+    function HUDADEEvent{T}(t::T, idx::UInt32) where {T}
         return new(t, idx)
     end
 end

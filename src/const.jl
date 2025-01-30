@@ -3,7 +3,7 @@
 # Licensed under the MIT license. See LICENSE file in the project root for details.
 #
 
-function c_t_NO_FUNCTION(t_next, x_d, u, p, t)
+function c_t_NO_FUNCTION(x_d, u, p, t) # t_next, 
     nothing
 end
 
@@ -11,7 +11,7 @@ function c_x_NO_FUNCTION(z, x_c, x_d, u, p)
     nothing
 end
 
-function a_t_NO_FUNCTION(x_c_right, x_d_right, x_c_left, x_d_left, u, p, t)
+function a_t_NO_FUNCTION(x_c_right, x_d_right, x_c_left, x_d_left, u, p, t, handle)
     nothing 
 end
 
