@@ -37,6 +37,13 @@ for i in 1:numSims+numTests
     display(fig)
 end
 
+# scatter(collect(solution_gt[1](t, Val{1})[2] for t in solution_gt[1].t), 
+#     collect(solution_gt[1](t, Val{1})[4] for t in solution_gt[1].t) .+ 9.81,
+#     xlims=(-15,15), ylims=(-15,15))
+
+# cor_coef(2, 4, solution_gt[5])
+# cor_coef(4, 2, solution_gt[4])
+
 # start with a fresh one!
 fpm = BouncingBall2D(; x_c0=x_c0, x_d0=x_d0, p=fpm_p0_wo_fric, tspan=tspan);
 for i in 1:numSims+numTests
@@ -503,13 +510,23 @@ end
 
 using Statistics
 
-function cor_coef(j, i, sol=solution_gt[1]; len=length(ts))
-    a = collect(u[i] for u in sol.u)[1:len]
-    b = collect(sol(t, Val{1})[j] for t in sol.t)[1:len]
+function cor_coef(a_index, b_index, sol=solution_gt[1]; a_deriv=1, b_deriv=1, len=length(ts))
+    a = collect(sol(t, Val{a_deriv})[a_index] for t in sol.t)[1:len]
+    b = collect(sol(t, Val{b_deriv})[b_index] for t in sol.t)[1:len]
 
-    for i in 1:length(b)
-        if abs(b[i]) > 100 
-            b[i] = 0.0
+    if a_deriv >= 1
+        for i in 1:length(a)
+            if abs(a[i]) > 100 
+                a[i] = 0.0
+            end
+        end
+    end
+
+    if b_deriv >= 1
+        for i in 1:length(b)
+            if abs(b[i]) > 100 
+                b[i] = 0.0
+            end
         end
     end
 

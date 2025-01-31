@@ -6,14 +6,14 @@
 include(joinpath(@__DIR__, "helpers.jl"))
 
 # variables
-x_c0 = [-0.25, -6.0, 0.5, 8.0]
+x_c0 = [-0.75, 4.0, 0.75, 0.0]
 x_d0 = [0.0]
 x0 = [x_c0..., x_d0...]
 t0 = 0.0
-tspan = (t0, 2.1)
+tspan = (t0, 1.3)
 ts = tspan[1]:0.01:tspan[2]
 adtype = Optimization.AutoForwardDiff(;chunksize=32)
-sampling_freq = 10.0
+sampling_freq = 20.0
 
 numStates = 4
 ann_x_c0 = Float64[]
@@ -28,6 +28,7 @@ hann_x0 = [hann_x_c0..., hann_x_d0...]
 function setup_ann()
     
     _ann = Chain(Dense(numStates => 16, tanh),
+                Dense(16 => 16, tanh),
                 Dense(16 => numStates, identity)) 
     ann = HUDADE.LuxDiscreteModel(_ann, ann_x0, sampling_freq) # x_c0, because the state is automatically extended by the next time event point entry
     ann_p0 = ann.p
@@ -50,6 +51,7 @@ end
 # NODE
 function setup_node()
     _node = Chain(Dense(4 => 16, tanh),
+    Dense(16 => 16, tanh),
                 Dense(16 => 2, identity)) 
     node = HUDADE.LuxSecondOrderNeuralODE(_node, x_c0)
     #node_p0 = node.p
@@ -67,6 +69,7 @@ end
 # NODE (hybrid) model
 function setup_hnode()
     _hnode = Chain(Dense(4 => 16, tanh),
+    Dense(16 => 16, tanh),
                 Dense(16 => 2, identity)) 
     hnode = HUDADE.LuxSecondOrderNeuralODE(_hnode, x_c0)
     hnode_p0 = hnode.p
@@ -93,6 +96,7 @@ end
 # ANN (hybrid) model
 function setup_hann()
     _hann = Chain(Dense(4 => 16, tanh),
+    Dense(16 => 16, tanh),
                 Dense(16 => 4, identity)) 
     hann = HUDADE.LuxDiscreteModel(_hann, x_c0, sampling_freq) # x_c0, because the state is automatically extended by the next time event point entry
     hann_p0 = hann.p
@@ -169,7 +173,8 @@ function setup_hann()
     # [ToDo] Time event ausführen und im TimeEvent checken, ob c_x (und falls ja) dann a_x ausführen
     sol_hann_before = solve(hann; tspan=tspan, p=hann_p0) # , x0=[hann_x_c0..., hann_x_d0...])
     display(plot(sol_hann_before))
-    reset!(100)
+    
+    reset!(100) # reset!(100)
     
     function myloss(p)
         loss(hann, p) # ; x0=[hann_x_c0..., hann_x_d0...])
@@ -293,12 +298,12 @@ plot(sol)
 plot(sol.t, collect(u[5] for u in sol.u))
 
 myloss(optprob.u0)
-optprob = train(optprob, 1e-2, 2000) 
+optprob = train(optprob, 1e-2, 1000)  
 myloss(optprob.u0)
 optprob = train(optprob, 1e-3, 1000)
-myloss(optprob.u0)
-optprob = train(optprob, 1e-4, 1000)
-myloss(optprob.u0)
+#myloss(optprob.u0)
+#optprob = train(optprob, 1e-4, 1000)
+loss_ann_after = myloss(optprob.u0)
 
 sol_ann_after = solve(ann; tspan=tspan, p=optprob.u0, saveat=ts)
 plot(collect(u[1] for u in sol_ann_after.u), collect(u[3] for u in sol_ann_after.u))
@@ -306,14 +311,14 @@ plot!(data1, data3)
 
 # ANN (hybrid) model
 hann, optprob, myloss = setup_hann()
-
+#reset!(33)
 myloss(optprob.u0)
 optprob = train(optprob, 1e-2, 1000)
 myloss(optprob.u0)
-optprob = train(optprob, 1e-3, 2000)
+optprob = train(optprob, 1e-3, 1000)
 myloss(optprob.u0)
-optprob = train(optprob, 1e-4, 2000)
-myloss(optprob.u0)
+optprob = train(optprob, 1e-4, 1000)
+loss_hann_after = myloss(optprob.u0)
 
 sol_hann_after = solve(hann; tspan=tspan, p=optprob.u0, saveat=ts)
 plot(collect(u[1] for u in sol_hann_after.u), collect(u[3] for u in sol_hann_after.u))
@@ -321,12 +326,14 @@ plot!(data1, data3)
 
 # NODE model
 node, optprob, myloss = setup_node()
-
+reset!(70)
 myloss(optprob.u0)
-optprob = train(optprob, 1e-2, 2500) # 2500
+optprob = train(optprob, 1e-2, 2000) # 2500
 myloss(optprob.u0)
-optprob = train(optprob, 1e-3, 2500) # 2500
+optprob = train(optprob, 1e-3, 2000) # 2500
 myloss(optprob.u0)
+#optprob = train(optprob, 1e-4, 2000) # 2500
+loss_node_after = myloss(optprob.u0)
 
 sol_node_after = solve(node; tspan=tspan, p=optprob.u0, saveat=ts)
 plot(collect(u[1] for u in sol_node_after.u), collect(u[3] for u in sol_node_after.u))
@@ -337,10 +344,7 @@ hnode, optprob, myloss = setup_hnode()
 
 myloss(optprob.u0)
 optprob = train(optprob, 1e-2, 500)
-myloss(optprob.u0)
-
-#s = solve(hnode; tspan=tspan, p=optprob.u0)
-#plot(s)
+loss_hnode_after = myloss(optprob.u0)
 
 sol_hnode_after = solve(hnode,; tspan=tspan, p=optprob.u0, saveat=ts)
 plot(collect(u[1] for u in sol_hnode_after.u), collect(u[3] for u in sol_hnode_after.u))
@@ -349,14 +353,14 @@ plot!(data1, data3)
 # plot all results 
 colors = Colors.distinguishable_colors(4, [RGB(1,1,1), RGB(0,0,0)], dropseed=true)
 
-fig = plotBB(; legend=:topleft)
-plot!(fig, data1, data3; dpi=300, label="ground truth", color=:black)
-plot!(fig, collect(u[1] for u in sol_ann_after.u), collect(u[3] for u in sol_ann_after.u); label="ANN", color=colors[1])
-plot!(fig, collect(u[1] for u in sol_hann_after.u), collect(u[3] for u in sol_hann_after.u); label="hy. ANN", color=colors[2])
-plot!(fig, collect(u[1] for u in sol_node_after.u), collect(u[3] for u in sol_node_after.u); label="neu. ODE", color=colors[3])
-plot!(fig, collect(u[1] for u in sol_hnode_after.u), collect(u[3] for u in sol_hnode_after.u); label="hy. neu. ODE", color=colors[4])
+fig = plotBB(; legend=:topright)
+plot!(fig, data1, data3; dpi=300, label="ground truth [0.0]", color=:black)
+plot!(fig, collect(u[1] for u in sol_ann_after.u), collect(u[3] for u in sol_ann_after.u); label="Disc. [$(round(loss_ann_after; digits=3))]", color=colors[1])
+plot!(fig, collect(u[1] for u in sol_hann_after.u), collect(u[3] for u in sol_hann_after.u); label="Disc. + Eve. [$(round(loss_hann_after; digits=3))]", color=colors[2])
+plot!(fig, collect(u[1] for u in sol_node_after.u), collect(u[3] for u in sol_node_after.u); label="Cont. [$(round(loss_node_after; digits=3))]", color=colors[3])
+plot!(fig, collect(u[1] for u in sol_hnode_after.u), collect(u[3] for u in sol_hnode_after.u); label="Cont. + Eve. [$(round(loss_hnode_after; digits=3))]", color=colors[4])
 
-scatterBB!(fig)
+scatterBB!(fig; scatterlabels=[tspan[1], collect(e.t for e in solution_gt.events)..., tspan[end]])
 
 savefig(fig, joinpath(@__DIR__, "plots", "pdf", "common.pdf"))
 display(fig)
