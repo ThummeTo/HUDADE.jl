@@ -3,8 +3,10 @@
 # Licensed under the MIT license. See LICENSE file in the project root for details.
 #
 
-#                         [  m,    g,   r,   d,   μ]#,   ζ] 
-const BouncingBall2D_p0 = [1.0, 9.81, 0.1, 0.1, 0.15]#, 0.1]
+# ToDo: add this to param array 
+const n_max = 10
+#                         [  m,    g,   r,   d,    μ]#, n_max]#,   ζ] 
+const BouncingBall2D_p0 = [1.0, 9.81, 0.1, 0.1, 0.15]#,    10]#, 0.1]
 const BouncingBall2D_u0 = zeros(Float64, 0)
 const BouncingBall2D_t0 = 0.0
 const BouncingBall2D_z0 = zeros(4)
@@ -31,6 +33,12 @@ function BouncingBall2D(; x_c0=BouncingBall2D_x_c0, x_d0=BouncingBall2D_x_d0, p=
 
         ax = 0.0 - v*vx*μ/m
         ay = -g  - v*vy*μ/m
+
+        # if ball is damaged, add additional resistance
+        if n >= n_max
+            ax += - 1.5*v*vx/m
+            ay += - 1.5*v*vy/m
+        end
 
         ẋ_c[1] = vx 
         ẋ_c[2] = ax

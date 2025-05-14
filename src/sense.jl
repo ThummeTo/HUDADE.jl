@@ -21,6 +21,10 @@ function istracked(e::Tuple)
     return any(istracked.(e))
 end
 
+function issense(e)
+    return istracked(e) || isdual(e)
+end
+
 # makes Reals from ForwardDiff.Dual scalar/vector
 function undual(e::AbstractArray)
     return undual.(e)

@@ -296,7 +296,7 @@ function cleanup(prob::HUDAODEProblem)
     return nothing
 end
 
-function SciMLBase.solve(prob::HUDAODEProblem, args...; tspan=prob.problem.tspan, p=prob.problem.p, callbacks::Bool=true, x0=nothing, u0=nothing, kwargs...)
+function SciMLBase.solve(prob::HUDAODEProblem, args...; tspan=prob.problem.tspan, p=prob.problem.p, useCallbacks::Bool=true, callback=[], x0=nothing, u0=nothing, kwargs...)
 
     @assert isnothing(u0) "u0 is not defined for HUDADEs (could be easily mixed up with the input u), please use x0 for the inital state instead."
 
@@ -313,9 +313,8 @@ function SciMLBase.solve(prob::HUDAODEProblem, args...; tspan=prob.problem.tspan
     prob.p_solve = p # to get `p` into the callbacks!
     prob.currentSolution = HUDADESolution()
 
-    callback = nothing 
-    if callbacks 
-        callback = CallbackSet(prob.callbacks...)
+    if useCallbacks 
+        callback = CallbackSet(prob.callbacks..., callback...)
     end
 
     prob.currentSolution.solution = SciMLBase.solve(prob.problem, args...; tspan=tspan, p=p, u0=x0, callback=callback, kwargs...)

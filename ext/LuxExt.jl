@@ -52,7 +52,7 @@ end
 """
 [ToDo]
 """
-function HUDADE.LuxSecondOrderModel(model; tspan=(0.0, 1.0))
+function HUDADE.LuxSecondOrderModel(model; tspan=(0.0, 1.0), y_len::Integer=0)
 
     rng = Random.default_rng()
     _p, st = Lux.setup(rng, model)
@@ -62,11 +62,13 @@ function HUDADE.LuxSecondOrderModel(model; tspan=(0.0, 1.0))
     # functions 
     g = function(y, x_c, x_d, u, p, t)
         
-        len = round(Int, length(u)/2)
+        if y_len == 0
+            y_len = round(Int, length(u)/2)
+        end
 
         y_so = evalLux(model, u, p, st)
 
-        for i in 1:len 
+        for i in 1:y_len 
             y[1+(i-1)*2] = u[1+(i-1)*2]
             y[i*2] = y_so[i]
         end
