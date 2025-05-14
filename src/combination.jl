@@ -98,13 +98,22 @@ export CombinedEquationSystem
 function getParameters(sys::CombinedEquationSystem; 
     initialize::Bool=true, 
     connect::Bool=false,
-    bias::Bool=false)
+    bias::Bool=false,
+    diag_az=nothing,
+    diag_bz=nothing,
+    diag_za=nothing,
+    diag_zb=nothing,
+    diag_ba=nothing)
 
     names = []
     values = []
 
     if initialize
-        initialize!(sys)
+        initialize!(sys; diag_az=diag_az,
+            diag_bz=diag_bz,
+            diag_za=diag_za,
+            diag_zb=diag_zb,
+            diag_ba=diag_ba)
     end 
     if connect
         connect!(sys)
@@ -175,7 +184,12 @@ end
 export getParameters
 
 function initialize!(sys::CombinedEquationSystem;
-    noise::Real=1e-4)
+    noise::Real=1e-4,
+    diag_az=nothing,
+    diag_bz=nothing,
+    diag_za=nothing,
+    diag_zb=nothing,
+    diag_ba=nothing)
 
     # resolve all connections
     zerofiy!(sys.W_az)
@@ -192,25 +206,30 @@ function initialize!(sys::CombinedEquationSystem;
 
     if sys.parallel 
         randomfiy!(sys.W_az, noise)
-        randomfiy!(sys.W_bz, noise)
         randomfiy!(sys.W_za, noise)
+        randomfiy!(sys.W_bz, noise)
         randomfiy!(sys.W_zb, noise)
+
+        # new! enable parallel connection for sys_b
+        identifiy!(sys.W_bz; diag=diag_bz)
+        identifiy!(sys.W_zb; diag=diag_zb)
         
-        identifiy!(sys.W_az)
-        identifiy!(sys.W_za)
+        identifiy!(sys.W_az; diag=diag_az)
+        identifiy!(sys.W_za; diag=diag_za)
     end
 
     if sys.sequential
         randomfiy!(sys.W_az, noise)
         randomfiy!(sys.W_ba, noise)
+
+        identifiy!(sys.W_az; diag=diag_az)
+        identifiy!(sys.W_ba; diag=diag_ba)
+
+        #if !sys.parallel
         randomfiy!(sys.W_zb, noise)
-
-        identifiy!(sys.W_az)
-        identifiy!(sys.W_ba)
-
-        if !sys.parallel
-            identifiy!(sys.W_zb)
-        end
+        #else
+        identifiy!(sys.W_zb; diag=diag_zb)
+        #end
     end
 
     if sys.feedthrough
@@ -227,13 +246,14 @@ function zerofiy!(A)
 end
 export zerofiy!
 
-function identifiy!(A)
+function identifiy!(A; diag::Nothing=nothing)
     r, c = size(A)
     for i in 1:r
         A[i,i] = 1.0
     end
     nothing
 end
+identifiy!(A; diag::AbstractVector) = diagonalify!(A, diag)
 export identifiy!
 
 function diagonalify!(A, diag)
