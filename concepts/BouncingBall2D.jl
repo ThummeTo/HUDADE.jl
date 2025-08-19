@@ -5,6 +5,7 @@
 
 # ToDo: add this to param array 
 const n_max = 10
+min_height = 1e-8 # ToDo: const 
 #                         [  m,    g,   r,   d,    μ]#, n_max]#,   ζ] 
 const BouncingBall2D_p0 = [1.0, 9.81, 0.1, 0.1, 0.15]#,    10]#, 0.1]
 const BouncingBall2D_u0 = zeros(Float64, 0)
@@ -31,7 +32,6 @@ function BouncingBall2D_a_x(x_c_right, x_d_right, x_c_left, x_d_left, u, p, t, i
     sx_left, vx_left, sy_left, vy_left = x_c_left 
     m, g, r, d, μ = p
     n_left = x_d_left[1]
-    eps = 1e-16
 
     # default setup
     x_c_right[1] = sx_left 
@@ -44,19 +44,19 @@ function BouncingBall2D_a_x(x_c_right, x_d_right, x_c_left, x_d_left, u, p, t, i
     
     elseif idx == 1 # state event (left)
         x_d_right[1] = n_left+1
-        x_c_right[1] = -1.0+(r+eps)
+        x_c_right[1] = -1.0+(r+min_height)
         x_c_right[2] = -vx_left*(1-d)
     elseif idx == 2 # state event (right)
         x_d_right[1] = n_left+1
-        x_c_right[1] = 1.0-(r+eps) 
+        x_c_right[1] = 1.0-(r+min_height) 
         x_c_right[2] = -vx_left*(1-d)
     elseif idx == 3 # state event (bottom)
         x_d_right[1] = n_left+1
-        x_c_right[3] = -1.0+(r+eps)
+        x_c_right[3] = -1.0+(r+min_height)
         x_c_right[4] = -vy_left*(1-d)
     elseif idx == 4 # state event (top)
         x_d_right[1] = n_left+1
-        x_c_right[3] = 1.0-(r+eps)
+        x_c_right[3] = 1.0-(r+min_height)
         x_c_right[4] = -vy_left*(1-d)
     end
 
