@@ -25,7 +25,7 @@ end
 # evaluates the Lux model (ip)
 # ToDo: is there an inplace option?
 function evalLux!(y, model, u, p, st)
-    y[:] = evalLux(u, p, st)
+    y[:] = evalLux(model, u, p, st)
     return nothing
 end
 
