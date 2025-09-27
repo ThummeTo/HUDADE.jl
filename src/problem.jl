@@ -64,7 +64,8 @@ mutable struct HUDAODEProblem
                 # ToDo: Is this correct? Pulling from the integrator?
                 t_left = integrator.t
                 t_right = t_left # is this correct?
-                x_c_left, x_d_left, u_c_left, u_d_left = fct.x_unpack(integrator.u)  
+                x_left = deepcopy(integrator.u)
+                x_c_left, x_d_left, u_c_left, u_d_left = fct.x_unpack(x_left)  
                 
                 # ToDo: Remove copy here!
                 x_c_right_local = deepcopy(x_c_left)
@@ -76,6 +77,10 @@ mutable struct HUDAODEProblem
                 fct.a_t(x_c_right_local, x_d_right_local, x_c_left, x_d_left, u, p, t_left, true)
     
                 #@info "true -> $((x_c_right_local, x_d_right_local))"
+
+                # default if no overwrite
+                x_c_right = x_c_left 
+                x_d_right = x_d_left 
 
                 needoptim = true
                 if needoptim 
@@ -106,14 +111,15 @@ mutable struct HUDAODEProblem
 
                     x_c_right, x_d_right = fct.x_unpack(result.minimizer)
         
-                    integrator.u[:] = fct.x_pack(x_c_right, x_d_right, u, u)
-
                     #@info "After: $(typeof(x_c_right))"
                 end
 
+                x_right = fct.x_pack(x_c_right, x_d_right, u, u)
+                integrator.u[:] = x_right
+
                 #@info "$((x_c_right, x_d_right)) $(result.minimum)"
 
-                add_event!(inst.currentSolution, t_right, 0)
+                add_event!(inst.currentSolution, t_right, 0, unsense(x_left), unsense(x_right))
     
                 nothing
             end
@@ -155,7 +161,8 @@ mutable struct HUDAODEProblem
 
                 # ToDo: Is this correct? Pulling from the integrator?
                 t = integrator.t
-                x_c_left, x_d_left, u_c_left, u_d_left = fct.x_unpack(integrator.u)  
+                x_left = deepcopy(integrator.u)
+                x_c_left, x_d_left, u_c_left, u_d_left = fct.x_unpack(x_left)  
                 
                 # ToDo: Remove copy here!
                 x_c_right_local = deepcopy(x_c_left)
@@ -165,6 +172,10 @@ mutable struct HUDAODEProblem
                 u = u_c_left
     
                 fct.a_x(x_c_right_local, x_d_right_local, x_c_left, x_d_left, u, p, t, idx)
+
+                # default if no overwrite
+                x_c_right = x_c_left 
+                x_d_right = x_d_left 
 
                 needoptim = true
                 if needoptim 
@@ -189,10 +200,12 @@ mutable struct HUDAODEProblem
 
                     x_c_right, x_d_right = fct.x_unpack(result.minimizer)
         
-                    integrator.u[:] = fct.x_pack(x_c_right, x_d_right, u, u)
                 end
 
-                add_event!(inst.currentSolution, t, idx)
+                x_right = fct.x_pack(x_c_right, x_d_right, u, u)
+                integrator.u[:] = x_right
+
+                add_event!(inst.currentSolution, unsense(t), idx, unsense(x_left), unsense(x_right))
     
                 #fct.input.x[1][:] = x_c_right
                 #fct.input.x[2][:] = x_d_right

@@ -45,9 +45,9 @@ function (solution::HUDADESolution)(args...)
     return solution.solution(args...)
 end
 
-function add_event!(solution::HUDADESolution, t::Union{Float64, Float32}, idx::UInt32) 
-    event = HUDADEEvent{typeof(t)}(t, idx)
+function add_event!(solution::HUDADESolution, t::Union{Float64, Float32}, idx::UInt32, x_left::Vector{Float64}, x_right::Vector{Float64}) 
+    event = HUDADEEvent{typeof(t)}(t, idx, x_left, x_right)
     push!(solution.events, event)
     return nothing
 end
-add_event!(solution::HUDADESolution, t::Union{Float64, Float32}, idx::Integer) = add_event!(solution, t, UInt32(idx))
+add_event!(solution::HUDADESolution, t::Union{Float64, Float32}, idx::Integer, x_left::Vector{Float64}, x_right::Vector{Float64}) = add_event!(solution, t, UInt32(idx), x_left, x_right)
